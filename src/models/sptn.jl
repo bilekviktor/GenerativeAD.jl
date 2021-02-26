@@ -11,18 +11,18 @@ end
 
 Flux.@functor SPTN
 
-function SPTN(;idim::Int=1, activation=identity, ncomp=4, nlayers::Int=2, 
+function SPTN(;idim::Int=1, activation=identity, ncomp=4, nlayers::Int=2,
 							init_seed=nothing, unitary=:butterfly, sharing=:dense, firstdense=false, kwargs...)
 	# if seed is given, set it
 	(init_seed != nothing) ? Random.seed!(init_seed) : nothing
 
 	model = SumProductTransform.buildmixture(
-				idim, 
-				ncomp, 
-				nlayers, 
-				activation; 
-				sharing = sharing, 
-				firstdense = firstdense, 
+				idim,
+				ncomp,
+				nlayers,
+				activation;
+				sharing = sharing,
+				firstdense = firstdense,
 				unitary = unitary)
 
 	# reset seed
@@ -41,7 +41,8 @@ function StatsBase.predict(model::SPTN, x)
 end
 
 function StatsBase.fit!(model::SPTN, data::Tuple; max_train_time=82800,
-						batchsize=64, patience=20, check_interval::Int=10, kwargs...)
+						batchsize=64, patience=20, check_interval::Int=10,
+						quantile=(0.0, 1.0), kwargs...)
 	opt = ADAM()
 	history = MVHistory()
 	tr_model = deepcopy(model)
@@ -51,7 +52,7 @@ function StatsBase.fit!(model::SPTN, data::Tuple; max_train_time=82800,
 	# split data
 	tr_x = data[1][1]
 	val_x = data[2][1][:, data[2][2] .== 0]
-		
+
 	best_val_loss = Inf
 	i = 1
 	start_time = time()
@@ -60,20 +61,21 @@ function StatsBase.fit!(model::SPTN, data::Tuple; max_train_time=82800,
 		# batch loss
 		batch_loss = 0f0
 		grad_time = @elapsed begin
-			gs = gradient(() -> begin 
-				batch_loss = -mean(logpdf(tr_model.m, batch))
+			gs = gradient(() -> begin
+				q_batch = lkl_quantile(tr_model.m, batch, quantile)
+				batch_loss = -mean(logpdf(tr_model.m, q_batch))
 			end, ps)
 			Flux.update!(opt, ps, gs)
 		end
 
 		push!(history, :training_loss, i, batch_loss)
 		push!(history, :grad_time, i, grad_time)
-		
+
 		# validation/early stopping
-		if (i%check_interval == 0) 
+		if (i%check_interval == 0)
 			val_lkl_time = @elapsed val_loss = -mean(batchlogpdf(tr_model.m, val_x, batchsize))
 			@info "$i - loss: $(frmt(batch_loss)) (batch) | $(frmt(val_loss)) (validation) || $(frmt(grad_time)) (t_grad) | $(frmt(val_lkl_time)) (t_val)"
-			
+
 			if isnan(val_loss) || isnan(batch_loss)
 				error("Encountered invalid values in loss function.")
 			end
@@ -103,6 +105,6 @@ function StatsBase.fit!(model::SPTN, data::Tuple; max_train_time=82800,
 
 		i += 1
 	end
-	
+
 	(history=history, iterations=i, model=model, npars=sum(map(p -> length(p), ps)))
 end

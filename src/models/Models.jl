@@ -15,6 +15,7 @@ include("utils/utils.jl")
 include("utils/two-stage.jl")
 include("utils/losses.jl")
 include("utils/nn_builders.jl")
+include("utils/lkl_quantile.jl")
 
 include("knn.jl")
 include("pidforest.jl")
