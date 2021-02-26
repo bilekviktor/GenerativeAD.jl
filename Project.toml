@@ -36,6 +36,7 @@ SumProductTransform = "433b66b6-b370-11e9-0fbb-5537bf1cf77b"
 UCI = "a83054f2-ddd1-11e8-0102-5779cc6302e5"
 Unitary = "75ebfc8e-976a-11e9-26c7-f5346d660b1d"
 ValueHistories = "98cad3c8-aec3-5f06-8e41-884608649ab7"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 julia = "1.5.1"
