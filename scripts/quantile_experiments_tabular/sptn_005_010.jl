@@ -24,7 +24,7 @@ end
 parsed_args = parse_args(ARGS, s)
 @unpack dataset, max_seed, contamination = parsed_args
 
-modelname = "sptn"
+modelname = "sptn_005_010"
 
 function sample_params()
 	parameter_rng = (
