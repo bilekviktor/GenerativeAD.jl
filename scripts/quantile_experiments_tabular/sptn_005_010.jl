@@ -47,7 +47,7 @@ function fit(data, parameters)
 
 	try
 		global info, fit_t, _, _, _ = @timed fit!(model, data; max_train_time=82800/max_seed,
-			patience=20, check_interval=10, parameters...)
+			patience=20, check_interval=10, quantile=(0.05, 0.1), parameters...)
 	catch e
 		# return an empty array if fit fails so nothing is computed
 		@info "Failed training due to \n$e"
@@ -66,36 +66,6 @@ function fit(data, parameters)
 	training_info, [(x -> predict(info.model, x), parameters)]
 end
 
-function flower2(n;npetals = 8)
-	theta = 1:npetals
-	n = div(n, length(theta))
-	mapreduce(hcat, theta * (2pi/npetals)) do t
-		ct = cos(t)
-		st = sin(t)
-
-		x0 = tanh.(randn(n) .- 1) .+ 4.0 .+ 0.05.* randn(n)
-		y0 = randn(n) .* 0.3
-
-		x = x0 * ct .- y0 * st
-		y = x0 * st .+ y0 * ct
-		[x y]'
-	end
-end
-
-function simple_data_gen()
-    tr_x = f32(flower2(6000, npetals=9))
-    tr_y = f32(zeros(5994))
-
-    val_x = f32(hcat(flower2(1900, npetals=9), 10 .* (rand(2, 100) .- 0.5)))
-    val_y = f32(vcat(ones(1899), zeros(100)) .!= 1)
-
-    tst_x = f32(hcat(flower2(1900, npetals=9), 10 .* (rand(2, 100) .- 0.5)))
-    tst_y = f32(vcat(ones(1899), zeros(100)) .!= 1)
-
-    (tr_x, tr_y), (val_x, val_y), (tst_x, tst_y)
-end
-
-
 if abspath(PROGRAM_FILE) == @__FILE__
 	# set a maximum for parameter sampling retries
 	try_counter = 0
@@ -109,7 +79,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 			mkpath(savepath)
 
 			# get data
-			data = simple_data_gen()
+			data = GenerativeAD.load_data(dataset, seed=seed, contamination=contamination)
 			# edit parameters
 			edited_parameters = GenerativeAD.edit_params(data, parameters)
 

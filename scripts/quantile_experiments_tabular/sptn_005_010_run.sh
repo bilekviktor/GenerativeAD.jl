@@ -13,4 +13,4 @@ module load Python/3.8.2-GCCcore-9.3.0
 
 julia --project -e 'using Pkg; Pkg.instantiate();'
 
-julia --project ./sptn_simple.jl $MAX_SEED $DATASET $CONTAMINATION
+julia --project ./sptn.jl $MAX_SEED $DATASET $CONTAMINATION
