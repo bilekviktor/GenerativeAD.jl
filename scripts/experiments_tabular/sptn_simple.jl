@@ -84,13 +84,13 @@ end
 
 function simple_data_gen()
     tr_x = f32(flower2(6000, npetals=9))
-    tr_y = f32(zeros(10000))
+    tr_y = f32(zeros(5994))
 
     val_x = f32(hcat(flower2(1900, npetals=9), 10 .* (rand(2, 100) .- 0.5)))
-    val_y = f32(vcat(ones(1900), zeros(100)) .!= 1)
+    val_y = f32(vcat(ones(1899), zeros(100)) .!= 1)
 
     tst_x = f32(hcat(flower2(1900, npetals=9), 10 .* (rand(2, 100) .- 0.5)))
-    tst_y = f32(vcat(ones(1900), zeros(100)) .!= 1)
+    tst_y = f32(vcat(ones(1899), zeros(100)) .!= 1)
 
     (tr_x, tr_y), (val_x, val_y), (tst_x, tst_y)
 end
