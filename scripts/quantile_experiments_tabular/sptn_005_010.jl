@@ -41,6 +41,7 @@ function sample_params()
 	(;zip(keys(parameter_rng), map(x->sample(x, 1)[1], parameter_rng))...)
 end
 
+println("zkouskaaaaaaaaaaaaa")
 
 function fit(data, parameters)
 	model = GenerativeAD.Models.SPTN(;idim=size(data[1][1],1), parameters...)
