@@ -9,7 +9,7 @@ using DataFrames
 using PrettyTables
 using PrettyTables.Crayons
 
-using GenerativeAD.Evaluation: _prefix_symbol, PAT_METRICS, aggregate_stats_mean_max
+using GenerativeAD.Evaluation: _prefix_symbol, PAT_METRICS, aggregate_stats_max_mean
 using GenerativeAD.Evaluation: rank_table, print_rank_table
 
 s = ArgParseSettings()
