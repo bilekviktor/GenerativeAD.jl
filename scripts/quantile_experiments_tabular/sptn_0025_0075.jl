@@ -24,7 +24,7 @@ end
 parsed_args = parse_args(ARGS, s)
 @unpack dataset, max_seed, contamination = parsed_args
 
-modelname = "sptn_005_010"
+modelname = "sptn_0025_0075"
 
 function sample_params()
 	parameter_rng = (
@@ -41,13 +41,12 @@ function sample_params()
 	(;zip(keys(parameter_rng), map(x->sample(x, 1)[1], parameter_rng))...)
 end
 
-
 function fit(data, parameters)
 	model = GenerativeAD.Models.SPTN(;idim=size(data[1][1],1), parameters...)
 
 	try
 		global info, fit_t, _, _, _ = @timed fit!(model, data; max_train_time=82800/max_seed,
-			patience=20, check_interval=10, quantile=(0.05, 0.1), parameters...)
+			patience=20, check_interval=10, quantile=(0.025, 0.075), parameters...)
 	catch e
 		# return an empty array if fit fails so nothing is computed
 		@info "Failed training due to \n$e"
