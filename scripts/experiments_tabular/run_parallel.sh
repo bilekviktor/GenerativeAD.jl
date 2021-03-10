@@ -23,6 +23,6 @@ while read d; do
     --output="${LOG_DIR}/${d}-%A_%a.out" \
      ./${MODEL}_run.sh $MAX_SEED $d $CONTAMINATION
 
-    # for local testing    
+    # for local testing
     # ./${MODEL}_run.sh $MAX_SEED $d
 done < ${DATASET_FILE}

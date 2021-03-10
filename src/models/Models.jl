@@ -31,7 +31,7 @@ include("adVAE.jl")
 include("DeepSVDD.jl")
 include("fanogan.jl")
 include("gan.jl")
-include("sptn.jl")
+include("ffjord.jl")
 
 # this contains dependencies from vae and aae
 include("utils/vae_utils.jl")

@@ -1,7 +1,8 @@
 using Zygote
+using StatsBase: predict
 
 function lkl_quantile(transformation, batch, percentage=(0.0, 1.0))
-    score = logpdf(transformation, batch)
+    score = -StatsBase.predict(transformation, batch)
     n = nobs(batch)
     l, r = percentage
     if l <= 0.0
