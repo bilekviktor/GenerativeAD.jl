@@ -1,1 +1,2 @@
-sptn_....... 100 10 20
+sptn 100 10 20
+tabular/sptn_*/*/seed=[12345]

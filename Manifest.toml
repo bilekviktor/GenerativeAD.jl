@@ -1131,9 +1131,9 @@ version = "0.5.5"
 
 [[SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "Distributed", "DocStringExtensions", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Statistics", "Tables", "TreeViews"]
-git-tree-sha1 = "be272e8d2cd0ce69bdbd98fc7cc8c5ff5d5d63db"
+git-tree-sha1 = "ad3dfcfb426011e894caa6dd38d2dc1ff6afc1ac"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.8.1"
+version = "1.8.2"
 
 [[SentinelArrays]]
 deps = ["Dates", "Random"]
@@ -1219,7 +1219,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[SumProductTransform]]
 deps = ["BSON", "Bijectors", "Clustering", "Distributions", "DistributionsAD", "FillArrays", "Flux", "HierarchicalUtils", "IterTools", "LinearAlgebra", "MLDataPattern", "NNlib", "Setfield", "StatsBase", "TimerOutputs", "Unitary", "ValueHistories", "Zygote"]
-git-tree-sha1 = "e40da0ac13de734f122198164a50589160467b8e"
+git-tree-sha1 = "2e341f6dd1d8477549ad7e749cc3c77d452b6320"
 repo-rev = "master"
 repo-url = "https://github.com/pevnak/SumProductTransform.jl.git"
 uuid = "433b66b6-b370-11e9-0fbb-5537bf1cf77b"
