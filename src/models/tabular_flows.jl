@@ -14,7 +14,7 @@ struct RealNVPFlow <: TabularFlow
 end
 
 function RealNVPFlow(;idim::Int=1, nflows::Int=2, hdim::Int=10, nlayers::Int=2,
-						act_loc="relu", act_scl="tanh",	init_seed=nothing, 
+						act_loc="relu", act_scl="tanh",	init_seed=nothing,
 						bn=true, init_I=true, tanhscaling=false, kwargs...)
 	# if seed is given, set it
 	(init_seed != nothing) ? Random.seed!(init_seed) : nothing
@@ -23,7 +23,7 @@ function RealNVPFlow(;idim::Int=1, nflows::Int=2, hdim::Int=10, nlayers::Int=2,
 				β=(d, o) -> build_mlp(d, hdim, o, nlayers, activation=act_scl, lastlayer="linear"))
 	model = RealNVPFlow(Chain([
 		RealNVP(
-			idim, 
+			idim,
 			builders,
 			mod(i,2) == 0;
 			use_batchnorm=bn,
@@ -50,17 +50,17 @@ struct MAF <: TabularFlow
 	base
 end
 
-function MAF(;idim::Int=1, nflows::Int=2, hdim::Int=10, nlayers::Int=2, 
-				act_loc="relu", act_scl="tanh",	ordering::String="natural", 
+function MAF(;idim::Int=1, nflows::Int=2, hdim::Int=10, nlayers::Int=2,
+				act_loc="relu", act_scl="tanh",	ordering::String="natural",
 				init_seed=nothing, bn=true, init_I=true, kwargs...)
 	# if seed is given, set it
 	(init_seed != nothing) ? Random.seed!(init_seed) : nothing
 
 	model = MAF(Chain([
 		MaskedAutoregressiveFlow(
-			idim, 
+			idim,
 			hdim,
-			nlayers, 
+			nlayers,
 			idim,
 			(α=eval(:($(Symbol(act_loc)))), β=eval(:($(Symbol(act_scl))))),
 			(ordering == "natural") ? (
@@ -68,7 +68,7 @@ function MAF(;idim::Int=1, nflows::Int=2, hdim::Int=10, nlayers::Int=2,
 			  ) : "random";
 			use_batchnorm=bn,
 			lastzero=init_I,
-			seed=rand(UInt)) 
+			seed=rand(UInt))
 		for i in 1:nflows]...), MvNormal(idim, 1.0f0)
 	) # seed has to be passed into maf in order to create the same masks
 
@@ -91,12 +91,18 @@ function loss(model::F, X) where {F <: TabularFlow}
 	-sum(logpdf(model.base, Z)' .+ logJ)/size(X, 2)
 end
 
+function Distributions.logpdf(model::F, X) where {F <: TabularFlow}
+	Z, logJ = model((X, _init_logJ(X)))
+	logpdf(model.base, Z)' .+ logJ
+end
+
 function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
-						batchsize=64, patience=200, check_interval::Int=10, 
-						wreg::Float32=1f-6, lr::Float32=1f-4, kwargs...) where F <: TabularFlow
+						batchsize=64, patience=200, check_interval::Int=10,
+						wreg::Float32=1f-6, lr::Float32=1f-4, quantile=(0.0, 1.0),
+						kwargs...) where F <: TabularFlow
 	# add regularization through weight decay in optimizer
 	opt = (wreg > 0) ? ADAMW(lr, (0.9, 0.999), wreg) : Flux.ADAM(lr)
-	
+
 	trn_model = deepcopy(model)
 	ps = Flux.params(trn_model);
 
@@ -106,13 +112,14 @@ function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
 
 	history = MVHistory()
 	_patience = patience
-	
+
 	best_val_loss = loss(trn_model, X_val)
 	i = 1
 	start_time = time()
 	for batch in RandomBatches(X, batchsize)
 		l = 0.0f0
-		gs = gradient(() -> begin l = loss(trn_model, batch) end, ps)
+		q_batch = lkl_quantile(trn_model.m, batch, quantile)
+		gs = gradient(() -> begin l = loss(trn_model, q_batch) end, ps)
 		Flux.update!(opt, ps, gs)
 
 		# validation/early stopping
@@ -120,14 +127,14 @@ function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
 		val_loss = loss(trn_model, X_val)
 		testmode!(model, false)
 		@info "$i - loss: $l (batch) | $val_loss (validation)"
-		
+
 		if isnan(val_loss) || isinf(val_loss) || isnan(l) || isinf(l)
 			error("Encountered invalid values in loss function.")
 		end
 
 		push!(history, :training_loss, i, l)
 		push!(history, :validation_likelihood, i, val_loss)
-		
+
 		# time limit for training
 		if time() - start_time > max_train_time
 			@info "Stopped training after $(i) iterations due to time limit."
@@ -140,7 +147,7 @@ function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
 			_patience = patience
 
 			# this should save the model at least once
-			# when the validation loss is decreasing 
+			# when the validation loss is decreasing
 			if mod(i, 10) == 0
 				model = deepcopy(trn_model)
 			end

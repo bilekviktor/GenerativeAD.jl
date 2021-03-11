@@ -23,7 +23,7 @@ end
 parsed_args = parse_args(ARGS, s)
 @unpack dataset, max_seed, contamination = parsed_args
 
-modelname = "RealNVP"
+modelname = "RealNVP_005_010"
 
 function sample_params()
 	parameter_rng = (
@@ -49,7 +49,7 @@ function fit(data, parameters)
 
 	try
 		global info, fit_t, _, _, _ = @timed fit!(model, data; max_train_time=82800/max_seed,
-										patience=200, check_interval=10, parameters...)
+										patience=200, check_interval=10, quantile=(0.05, 0.1),parameters...)
 	catch e
 		@info "Failed training due to \n$e"
 		return (fit_t = NaN, history=nothing, npars=nothing, model=nothing), []

@@ -23,13 +23,14 @@ end
 parsed_args = parse_args(ARGS, s)
 @unpack dataset, max_seed, contamination = parsed_args
 
-modelname = "RealNVP"
+modelname = "MAF_0025_0075"
 
 function sample_params()
 	parameter_rng = (
 		nflows 		= 2 .^ (1:3),
 		hdim 		= 2 .^(4:10),
 		nlayers 	= 2:3,
+		ordering 	= ["natural", "random"],
 		lr 			= [1f-4],
 		batchsize 	= 2 .^ (5:7),
 		act_loc		= ["relu", "tanh"],
@@ -37,19 +38,18 @@ function sample_params()
 		bn 			= [true, false],
 		wreg 		= [0.0f0, 1f-5, 1f-6],
 		init_seed 	= 1:Int(1e8),
-		init_I 		= [true, false],
-		tanhscaling = [true, false]
+		init_I 		= [true, false]
 	)
 
 	(;zip(keys(parameter_rng), map(x->sample(x, 1)[1], parameter_rng))...)
 end
 
 function fit(data, parameters)
-	model = GenerativeAD.Models.RealNVPFlow(;idim=size(data[1][1], 1), parameters...)
+	model = GenerativeAD.Models.MAF(;idim=size(data[1][1], 1), parameters...)
 
 	try
 		global info, fit_t, _, _, _ = @timed fit!(model, data; max_train_time=82800/max_seed,
-										patience=200, check_interval=10, parameters...)
+						patience=200, check_interval=10, quantile=(0.025, 0.075), parameters...)
 	catch e
 		@info "Failed training due to \n$e"
 		return (fit_t = NaN, history=nothing, npars=nothing, model=nothing), []
