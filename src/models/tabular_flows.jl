@@ -93,8 +93,9 @@ end
 
 function Distributions.logpdf(model::F, X) where {F <: TabularFlow}
 	Z, logJ = model((X, _init_logJ(X)))
-	logpdf(model.base, Z)' .+ logJ
+	(logpdf(model.base, Z) .+ logJ')[:]
 end
+
 
 function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
 						batchsize=64, patience=200, check_interval::Int=10,
