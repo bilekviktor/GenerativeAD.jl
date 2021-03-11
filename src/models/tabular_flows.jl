@@ -118,7 +118,7 @@ function StatsBase.fit!(model::F, data::Tuple; max_train_time=82800,
 	start_time = time()
 	for batch in RandomBatches(X, batchsize)
 		l = 0.0f0
-		q_batch = lkl_quantile(trn_model.m, batch, quantile)
+		q_batch = lkl_quantile(trn_model, batch, quantile)
 		gs = gradient(() -> begin l = loss(trn_model, q_batch) end, ps)
 		Flux.update!(opt, ps, gs)
 
