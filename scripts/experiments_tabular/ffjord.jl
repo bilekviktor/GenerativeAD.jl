@@ -32,6 +32,7 @@ function sample_params()
         nhidden = 1:4,
         size_hidden = 5:5:20,
         nblocks = 1:2:9,
+        batchsize = 2 .^ (5:7),
         init_seed = 1:Int(1e8),
 	)
 
