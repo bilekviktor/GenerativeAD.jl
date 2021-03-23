@@ -78,17 +78,19 @@ plot!(sptn_5_df[:relnpars], sptn_5_df[:rank])
 plot!(sptn_25_df[:relnpars], sptn_25_df[:rank])
 =#
 
-data_dim(s) = size(load_data(s)[1][1], 1)
-datadim = Dict()
-for d in unique(df[:dataset])
-    println(d)
-    datadim[d] = size(load_data(d)[1][1], 1)
-end
-
 function main(args)
 	f = datadir(args["filename"])
 	df = load(f)[:df]
     cdf = deepcopy(df)
+
+    #data dim dict
+    data_dim(s) = size(load_data(s)[1][1], 1)
+    datadim = Dict()
+    for d in unique(df[:dataset])
+        println(d)
+        datadim[d] = size(load_data(d)[1][1], 1)
+    end
+
     cdf.datadim = 1
     cdf.relnpars = 1.0
     for f in eachrow(cdf)
