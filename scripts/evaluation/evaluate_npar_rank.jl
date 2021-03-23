@@ -25,7 +25,7 @@ s = ArgParseSettings()
 		help = "Criterion to sort the models."
 	"-r", "--rank-metric"
 		arg_type = String
-		default = ""
+		default = "tst_auc"
 		help = "Metric to rank models."
 	"-o", "--output-prefix"
 		arg_type = String
@@ -77,6 +77,13 @@ plot(sptn_df[:relnpars], sptn_df[:rank])
 plot!(sptn_5_df[:relnpars], sptn_5_df[:rank])
 plot!(sptn_25_df[:relnpars], sptn_25_df[:rank])
 =#
+
+data_dim(s) = size(load_data(s)[1][1], 1)
+datadim = Dict()
+for d in unique(df[:dataset])
+    println(d)
+    datadim[d] = size(load_data(d)[1][1], 1)
+end
 
 function main(args)
 	f = datadir(args["filename"])
