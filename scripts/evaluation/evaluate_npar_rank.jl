@@ -34,6 +34,10 @@ s = ArgParseSettings()
     "-f", "--force"
     	action = :store_true
 		help = "Overwrite all generated files."
+    "-m", "--max-params"
+		arg_type = Int
+		default = -1
+		help = "Maximum number of relative maximum params of model."
 end
 
 #=
@@ -90,7 +94,12 @@ function main(args)
     # Dataframe for final ranks for each relnpars
     npar_df = DataFrame(modelname = String[],relnpars = Float64[], rank = Float64[])
 
-    for i in minimum(cdf[:relnpars]):10:maximum(cdf[:relnpars])
+    m = args["max-params"]
+    if m == -1
+        m = maximum(cdf[:relnpars])
+    end
+
+    for i in minimum(cdf[:relnpars]):10:m
         # evaluation and rank table
         df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], Symbol(args["criterion-metric"]))
         rt = rank_table(df_agg, args["rank-metric"])
