@@ -87,7 +87,6 @@ function main(args)
     data_dim(s) = size(load_data(s)[1][1], 1)
     datadim = Dict()
     for d in unique(df[:dataset])
-        println(d)
         datadim[d] = size(load_data(d)[1][1], 1)
     end
 
@@ -123,8 +122,8 @@ function main(args)
 
     ff = datadir(args["output-prefix"])
 	if (isfile(ff) && args["force"]) || ~isfile(ff)
-		@info "Saving $(nrow(df)) rows to $f."
-		wsave(ff, Dict(:df => df))
+		@info "Saving $(nrow(npar_df)) rows to $ff."
+		wsave(ff, Dict(:df => npar_df))
 	end
 	@info "---------------- DONE -----------------"
 end
