@@ -115,6 +115,7 @@ function main(args)
             # row for each model at relnpars
             push!(npar_df, (n, i, rt[end, n]))
         end
+		@info "Number of relative parameters $i"
     end
 
 	@info "Best models chosen by $(args["criterion-metric"])"
