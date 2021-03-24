@@ -107,7 +107,7 @@ function main(args)
         m = maximum(cdf[:relnpars])
     end
 
-    for i in minimum(cdf[:relnpars]):10:m
+    for i in minimum(cdf[:relnpars]):1:m
         # evaluation and rank table
         df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], Symbol(args["criterion-metric"]))
         rt = rank_table(df_agg, args["rank-metric"])
