@@ -8,6 +8,9 @@ using Random
 using FileIO
 using DataFrames
 
+# s = datadir("evaluation/zkouska_graf_rel_params.bson")
+
+plotly()
 function plot_npar_rank(s)
     f = load(s)
     df = f[:df]

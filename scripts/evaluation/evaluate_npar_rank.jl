@@ -34,13 +34,30 @@ s = ArgParseSettings()
     "-f", "--force"
     	action = :store_true
 		help = "Overwrite all generated files."
-    "-m", "--max-params"
-		arg_type = Int
-		default = -1
-		help = "Maximum number of relative maximum params of model."
 end
 
-#=
+
+args = Dict()
+args["filename"] = "evaluation/tabular_sptn_5seeds_quantiles_eval.bson"
+args["criterion-metric"] = "val_auc"
+args["rank-metric"] = "tst_auc"
+args["output-prefix"] = "evaluation/zkouska_graf_rel_params.bson"
+args["max-params"] = 100
+
+f = datadir(args["filename"])
+df = load(f)[:df]
+cdf = deepcopy(df)
+
+tdf = deepcopy(cdf)
+for i in 1:1
+	tdf = deepcopy(cdf)
+	for d in unique(cdf[:dataset])
+		mx = maximum(cdf[cdf[:dataset] .== d, :npars])
+		filter!(row -> (row[:dataset] .!= d) .| ((row[:dataset] .== d) .& (row[:npars] .<= i/100 .* mx)), tdf)
+	end
+	println(i)
+end
+
 data_dim(s) = size(load_data(s)[1][1], 1)
 datadim = Dict()
 for d in unique(df[:dataset])
@@ -76,7 +93,7 @@ sptn_25_df = npar_df[npar_df[:modelname] .== "sptn_0025_0075", :]
 plot(sptn_df[:relnpars], sptn_df[:rank])
 plot!(sptn_5_df[:relnpars], sptn_5_df[:rank])
 plot!(sptn_25_df[:relnpars], sptn_25_df[:rank])
-=#
+
 
 function main(args)
 	f = datadir(args["filename"])
@@ -90,33 +107,51 @@ function main(args)
         datadim[d] = size(load_data(d)[1][1], 1)
     end
 
-    cdf.datadim = 1
-    cdf.relnpars = 1.0
-    for f in eachrow(cdf)
-        f.datadim = datadim[f[:dataset]]
-        #relnpars = numb. of params of model / data dim.
-        f.relnpars = f[:npars]/f[:datadim]
-    end
+    # cdf.datadim = 1
+    # cdf.relnpars = 1.0
+    # for f in eachrow(cdf)
+    #     f.datadim = datadim[f[:dataset]]
+    #     #relnpars = numb. of params of model / data dim.
+    #     f.relnpars = f[:npars]/f[:datadim]
+    # end
 	@info "Loaded $(nrow(df)) rows from $f"
 
     # Dataframe for final ranks for each relnpars
     npar_df = DataFrame(modelname = String[],relnpars = Float64[], rank = Float64[])
 
-    m = args["max-params"]
-    if m == -1
-        m = maximum(cdf[:relnpars])
-    end
+    # m = args["max-params"]
+    # if m == -1
+    #     m = maximum(cdf[:relnpars])
+    # end
+	#
+    # for i in minimum(cdf[:relnpars]):1:m
+    #     # evaluation and rank table
+    #     df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], Symbol(args["criterion-metric"]))
+    #     rt = rank_table(df_agg, args["rank-metric"])
+    #     for n in names(rt)[2:end]
+    #         # row for each model at relnpars
+    #         push!(npar_df, (n, i, rt[end, n]))
+    #     end
+	# 	@info "Number of relative parameters $i"
+    # end
 
-    for i in minimum(cdf[:relnpars]):1:m
-        # evaluation and rank table
-        df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], Symbol(args["criterion-metric"]))
-        rt = rank_table(df_agg, args["rank-metric"])
+	for i in 1:100
+		tdf = deepcopy(cdf)
+		for d in unique(cdf[:dataset])
+			mx = maximum(cdf[cdf[:dataset] .== d, :npars])
+			filter!(row -> (row[:dataset] .!= d) .| ((row[:dataset] .== d) .& (row[:npars] .<= i/100 .* mx)), tdf)
+		end
+		display(size(tdf))
+		df_agg = aggregate_stats_mean_max(tdf, Symbol(args["criterion-metric"]))
+		rt = rank_table(df_agg, args["rank-metric"])
+
         for n in names(rt)[2:end]
             # row for each model at relnpars
             push!(npar_df, (n, i, rt[end, n]))
         end
-		@info "Number of relative parameters $i"
-    end
+
+		@info "Percent of relative parameters $i %"
+	end
 
 	@info "Best models chosen by $(args["criterion-metric"])"
 	@info "Ranking by $(args["rank-metric"])"
