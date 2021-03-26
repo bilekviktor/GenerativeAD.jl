@@ -37,62 +37,62 @@ s = ArgParseSettings()
 end
 
 
-args = Dict()
-args["filename"] = "evaluation/tabular_sptn_5seeds_quantiles_eval.bson"
-args["criterion-metric"] = "val_auc"
-args["rank-metric"] = "tst_auc"
-args["output-prefix"] = "evaluation/zkouska_graf_rel_params.bson"
-args["max-params"] = 100
-
-f = datadir(args["filename"])
-df = load(f)[:df]
-cdf = deepcopy(df)
-
-tdf = deepcopy(cdf)
-for i in 1:1
-	tdf = deepcopy(cdf)
-	for d in unique(cdf[:dataset])
-		mx = maximum(cdf[cdf[:dataset] .== d, :npars])
-		filter!(row -> (row[:dataset] .!= d) .| ((row[:dataset] .== d) .& (row[:npars] .<= i/100 .* mx)), tdf)
-	end
-	println(i)
-end
-
-data_dim(s) = size(load_data(s)[1][1], 1)
-datadim = Dict()
-for d in unique(df[:dataset])
-    println(d)
-    datadim[d] = size(load_data(d)[1][1], 1)
-end
-df[data_dim.(df[:dataset]) .== 10]
-
-cdf.datadim = 1
-cdf.relnpars = 1.0
-for f in eachrow(cdf)
-    @show f.datadim = datadim[f[:dataset]]
-    @show f.relnpars = f[:npars]/f[:datadim]
-end
-
-df_agg = aggregate_stats_mean_max(cdf, "val_auc")
-rt = rank_table(df_agg, "tst_auc")
-
-npar_df = DataFrame(modelname = String[],relnpars = Float64[], rank = Float64[])
-for i in minimum(cdf[:relnpars]):10:maximum(cdf[:relnpars])
-    df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], "val_auc")
-    rt = rank_table(df_agg, "tst_auc")
-    for n in names(rt)[2:end]
-        push!(npar_df, (n, i, rt[end, n]))
-    end
-    println(i)
-end
-npar_df
-using Plots
-sptn_df = npar_df[npar_df[:modelname] .== "sptn", :]
-sptn_5_df = npar_df[npar_df[:modelname] .== "sptn_005_010", :]
-sptn_25_df = npar_df[npar_df[:modelname] .== "sptn_0025_0075", :]
-plot(sptn_df[:relnpars], sptn_df[:rank])
-plot!(sptn_5_df[:relnpars], sptn_5_df[:rank])
-plot!(sptn_25_df[:relnpars], sptn_25_df[:rank])
+# args = Dict()
+# args["filename"] = "evaluation/tabular_sptn_5seeds_quantiles_eval.bson"
+# args["criterion-metric"] = "val_tpr_5"
+# args["rank-metric"] = "tst_tpr_5"
+# args["output-prefix"] = "evaluation/zkouska_graf_rel_params2.bson"
+# args["max-params"] = 100
+#
+# f = datadir(args["filename"])
+# df = load(f)[:df]
+# cdf = deepcopy(df)
+#
+# tdf = deepcopy(cdf)
+# for i in 1:1
+# 	tdf = deepcopy(cdf)
+# 	for d in unique(cdf[:dataset])
+# 		mx = maximum(cdf[cdf[:dataset] .== d, :npars])
+# 		filter!(row -> (row[:dataset] .!= d) .| ((row[:dataset] .== d) .& (row[:npars] .<= i/100 .* mx)), tdf)
+# 	end
+# 	println(i)
+# end
+#
+# data_dim(s) = size(load_data(s)[1][1], 1)
+# datadim = Dict()
+# for d in unique(df[:dataset])
+#     println(d)
+#     datadim[d] = size(load_data(d)[1][1], 1)
+# end
+# df[data_dim.(df[:dataset]) .== 10]
+#
+# cdf.datadim = 1
+# cdf.relnpars = 1.0
+# for f in eachrow(cdf)
+#     @show f.datadim = datadim[f[:dataset]]
+#     @show f.relnpars = f[:npars]/f[:datadim]
+# end
+#
+# df_agg = aggregate_stats_mean_max(cdf, "val_auc")
+# rt = rank_table(df_agg, "tst_auc")
+#
+# npar_df = DataFrame(modelname = String[],relnpars = Float64[], rank = Float64[])
+# for i in minimum(cdf[:relnpars]):10:maximum(cdf[:relnpars])
+#     df_agg = aggregate_stats_mean_max(cdf[cdf[:relnpars] .<= i, :], "val_auc")
+#     rt = rank_table(df_agg, "tst_auc")
+#     for n in names(rt)[2:end]
+#         push!(npar_df, (n, i, rt[end, n]))
+#     end
+#     println(i)
+# end
+# npar_df
+# using Plots
+# sptn_df = npar_df[npar_df[:modelname] .== "sptn", :]
+# sptn_5_df = npar_df[npar_df[:modelname] .== "sptn_005_010", :]
+# sptn_25_df = npar_df[npar_df[:modelname] .== "sptn_0025_0075", :]
+# plot(sptn_df[:relnpars], sptn_df[:rank])
+# plot!(sptn_5_df[:relnpars], sptn_5_df[:rank])
+# plot!(sptn_25_df[:relnpars], sptn_25_df[:rank])
 
 
 function main(args)
@@ -141,7 +141,7 @@ function main(args)
 			mx = maximum(cdf[cdf[:dataset] .== d, :npars])
 			filter!(row -> (row[:dataset] .!= d) .| ((row[:dataset] .== d) .& (row[:npars] .<= i/100 .* mx)), tdf)
 		end
-		display(size(tdf))
+		# display(size(tdf))
 		df_agg = aggregate_stats_mean_max(tdf, Symbol(args["criterion-metric"]))
 		rt = rank_table(df_agg, args["rank-metric"])
 
