@@ -23,7 +23,7 @@ collect_files(target) = collect_files!(target, String[])
 """
 	collect_files_th(target)
 
-Multithreaded version of recursive file collection. 
+Multithreaded version of recursive file collection.
 Does not have as many checks as th single threaded.
 May not perform as well on some configurations.
 Using @threads inside recursion may not be the best idea.
@@ -39,4 +39,22 @@ function collect_files_th(target::String)
         results[i] = collect_files_th(files[i])
     end
     reduce(vcat, results)
+end
+
+function quantile_scores(score, percentage=(0.0, 1.0))
+	n = length(score)
+    l, r = percentage
+    if l <= 0.0
+        lq = 1
+    else
+        lq = Int(ceil(l*n))
+    end
+    if r >= 1.0
+        rq = n
+    else
+        rq = Int(ceil(r*n))
+    end
+    perms = sortperm(score)
+    indxs = perms[lq:rq]
+	return score[indxs]
 end

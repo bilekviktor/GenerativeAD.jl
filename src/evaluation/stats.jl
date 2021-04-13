@@ -6,13 +6,15 @@ using DataFrames
 using Statistics
 using StatsBase
 using EvalMetrics
+using GenerativeAD.Evaluation: quantile_scores
 
-# metric names and settings 
+# metric names and settings
 const BASE_METRICS = ["auc", "auprc", "tpr_5", "f1_5"]
 const PAT_METRICS = ["pat_001", "pat_01", "pat_1", "pat_5", "pat_10", "pat_20"]
 const PATN_METRICS = ["patn_5", "patn_10", "patn_50", "patn_100", "patn_500", "patn_1000"]
 const PAC_METRICS = ["pac_5", "pac_10", "pac_50", "pac_100", "pac_500", "pac_1000"]
 const TRAIN_EVAL_TIMES = ["fit_t", "tr_eval_t", "tst_eval_t", "val_eval_t"]
+const LOSS_METRICS = ["loss", "loss_005_010", "loss_0025_0075"]
 
 """
 	_prefix_symbol(prefix, s)
@@ -95,7 +97,7 @@ function compute_stats(f::String)
 		modelname = r[:modelname],
 		dataset = r[:dataset],
 		phash = hash(r[:parameters]),
-		parameters = savename(r[:parameters], digits=6), 
+		parameters = savename(r[:parameters], digits=6),
 		fit_t = r[:fit_t],
 		tr_eval_t = r[:tr_eval_t],
 		tst_eval_t = r[:tst_eval_t],
@@ -103,7 +105,7 @@ function compute_stats(f::String)
 		seed = r[:seed],
 		npars = (Symbol("npars") in keys(r)) ? r[:npars] : 0
 	)
-	
+
 	if Symbol("anomaly_class") in keys(r)
 		row = merge(row, (anomaly_class = r[:anomaly_class],))
 	elseif Symbol("ac") in keys(r)
@@ -152,8 +154,8 @@ function compute_stats(f::String)
 			tpr5 = EvalMetrics.true_positive_rate(cm5)
 			f5 = EvalMetrics.f1_score(cm5)
 
-			row = merge(row, (;zip(_prefix_symbol.(splt, 
-					BASE_METRICS), 
+			row = merge(row, (;zip(_prefix_symbol.(splt,
+					BASE_METRICS),
 					[auc, auprc, tpr5, f5])...))
 
 			# compute precision on most anomalous samples
@@ -161,10 +163,10 @@ function compute_stats(f::String)
 			row = merge(row, (;zip(_prefix_symbol.(splt, PAT_METRICS), pat)...))
 
 			patn = [_nprecision_at(n, labels, scores) for n in [5, 10, 50, 100, 500, 1000]]
-			row = merge(row, (;zip(_prefix_symbol.(splt, PATN_METRICS), patn)...))	
+			row = merge(row, (;zip(_prefix_symbol.(splt, PATN_METRICS), patn)...))
 
 			pac = [_auc_at(n, labels, scores, auc) for n in [5, 10, 50, 100, 500, 1000]]
-			row = merge(row, (;zip(_prefix_symbol.(splt, PAC_METRICS), pac)...))	
+			row = merge(row, (;zip(_prefix_symbol.(splt, PAC_METRICS), pac)...))
 		else
 			error("$(splt)_scores contain only one value")
 		end
@@ -174,8 +176,165 @@ function compute_stats(f::String)
 end
 
 """
-	aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc; 
-								min_samples=("anomaly_class" in names(df)) ? 10 : 3, 
+	compute_quantile_stats(f::String)
+
+Modified compute_stats function. Addition of loss values, quantile loss values
+and train metrics with anomalies from tst data.
+"""
+function compute_quantile_stats(f::String)
+	r = load(f)
+	row = (
+		modelname = r[:modelname],
+		dataset = r[:dataset],
+		phash = hash(r[:parameters]),
+		parameters = savename(r[:parameters], digits=6),
+		fit_t = r[:fit_t],
+		tr_eval_t = r[:tr_eval_t],
+		tst_eval_t = r[:tst_eval_t],
+		val_eval_t = r[:val_eval_t],
+		seed = r[:seed],
+		npars = (Symbol("npars") in keys(r)) ? r[:npars] : 0
+	)
+
+	if Symbol("anomaly_class") in keys(r)
+		row = merge(row, (anomaly_class = r[:anomaly_class],))
+	elseif Symbol("ac") in keys(r)
+		row = merge(row, (anomaly_class = r[:ac],))
+	end
+
+	# add fs = first stage fit/eval time
+	# case of ensembles and 2stage models
+	if Symbol("encoder_fit_t") in keys(r)
+		row = merge(row, (fs_fit_t = r[:encoder_fit_t], fs_eval_t = r[:encode_t],))
+	elseif Symbol("ensemble_fit_t") in keys(r)
+		row = merge(row, (fs_fit_t = r[:ensemble_fit_t], fs_eval_t = r[:ensemble_eval_t],))
+	else
+		row = merge(row, (fs_fit_t = 0.0, fs_eval_t = 0.0,))
+	end
+
+	for splt in ["val", "tst"]
+		scores = r[_prefix_symbol(splt, :scores)]
+		labels = r[_prefix_symbol(splt, :labels)]
+
+		if length(scores) > 1
+			# in cases where scores is not an 1D array
+			scores = scores[:]
+
+			invalid = isnan.(scores)
+			ninvalid = sum(invalid)
+
+			if ninvalid > 0
+				invrat = ninvalid/length(scores)
+				invlab = labels[invalid]
+				cml = countmap(invlab)
+				@warn "Invalid stats for $(f) \t $(ninvalid) | $(invrat) | $(length(scores)) | $(get(cml, 1.0, 0)) | $(get(cml, 0.0, 0))"
+
+				scores = scores[.~invalid]
+				labels = labels[.~invalid]
+				(invrat > 0.5) && error("$(splt)_scores contain too many NaN")
+			end
+
+			roc = EvalMetrics.roccurve(labels, scores)
+			auc = EvalMetrics.auc_trapezoidal(roc...)
+			prc = EvalMetrics.prcurve(labels, scores)
+			auprc = EvalMetrics.auc_trapezoidal(prc...)
+
+			t5 = EvalMetrics.threshold_at_fpr(labels, scores, 0.05)
+			cm5 = ConfusionMatrix(labels, scores, t5)
+			tpr5 = EvalMetrics.true_positive_rate(cm5)
+			f5 = EvalMetrics.f1_score(cm5)
+
+			row = merge(row, (;zip(_prefix_symbol.(splt,
+					BASE_METRICS),
+					[auc, auprc, tpr5, f5])...))
+
+			# compute precision on most anomalous samples
+			pat = [_precision_at(p/100.0, labels, scores) for p in [0.01, 0.1, 1.0, 5.0, 10.0, 20.0]]
+			row = merge(row, (;zip(_prefix_symbol.(splt, PAT_METRICS), pat)...))
+
+			patn = [_nprecision_at(n, labels, scores) for n in [5, 10, 50, 100, 500, 1000]]
+			row = merge(row, (;zip(_prefix_symbol.(splt, PATN_METRICS), patn)...))
+
+			pac = [_auc_at(n, labels, scores, auc) for n in [5, 10, 50, 100, 500, 1000]]
+			row = merge(row, (;zip(_prefix_symbol.(splt, PAC_METRICS), pac)...))
+		else
+			error("$(splt)_scores contain only one value")
+		end
+	end
+
+	# Addition of train metrics
+	tr_norm_scores = r[_prefix_symbol("tr", :scores)]
+	tr_norm_labels = r[_prefix_symbol("tr", :labels)]
+
+	anom_perms = findall(x->x==1.0, r[_prefix_symbol("tst", :labels)])
+
+	tst_anom_scores = r[_prefix_symbol("tst", :scores)][anom_perms]
+	tst_anom_labels = r[_prefix_symbol("tst", :labels)][anom_perms]
+
+	scores = vcat(tr_norm_scores, tst_anom_scores)
+	labels = vcat(tr_norm_labels, tst_anom_labels)
+
+	splt = "tr"
+
+	if length(scores) > 1
+		# in cases where scores is not an 1D array
+		scores = scores[:]
+
+		invalid = isnan.(scores)
+		ninvalid = sum(invalid)
+
+		if ninvalid > 0
+			invrat = ninvalid/length(scores)
+			invlab = labels[invalid]
+			cml = countmap(invlab)
+			@warn "Invalid stats for $(f) \t $(ninvalid) | $(invrat) | $(length(scores)) | $(get(cml, 1.0, 0)) | $(get(cml, 0.0, 0))"
+
+			scores = scores[.~invalid]
+			labels = labels[.~invalid]
+			(invrat > 0.5) && error("$(splt)_scores contain too many NaN")
+		end
+
+		roc = EvalMetrics.roccurve(labels, scores)
+		auc = EvalMetrics.auc_trapezoidal(roc...)
+		prc = EvalMetrics.prcurve(labels, scores)
+		auprc = EvalMetrics.auc_trapezoidal(prc...)
+
+		t5 = EvalMetrics.threshold_at_fpr(labels, scores, 0.05)
+		cm5 = ConfusionMatrix(labels, scores, t5)
+		tpr5 = EvalMetrics.true_positive_rate(cm5)
+		f5 = EvalMetrics.f1_score(cm5)
+
+		row = merge(row, (;zip(_prefix_symbol.(splt,
+				BASE_METRICS),
+				[auc, auprc, tpr5, f5])...))
+
+		# compute precision on most anomalous samples
+		pat = [_precision_at(p/100.0, labels, scores) for p in [0.01, 0.1, 1.0, 5.0, 10.0, 20.0]]
+		row = merge(row, (;zip(_prefix_symbol.(splt, PAT_METRICS), pat)...))
+
+		patn = [_nprecision_at(n, labels, scores) for n in [5, 10, 50, 100, 500, 1000]]
+		row = merge(row, (;zip(_prefix_symbol.(splt, PATN_METRICS), patn)...))
+
+		pac = [_auc_at(n, labels, scores, auc) for n in [5, 10, 50, 100, 500, 1000]]
+		row = merge(row, (;zip(_prefix_symbol.(splt, PAC_METRICS), pac)...))
+	else
+		error("$(splt)_scores contain only one value")
+	end
+
+	# Addition of loss and quantile loss values on train data
+	tr_scores = r[_prefix_symbol("tr", :scores)]
+	loss = mean(tr_scores)
+	loss_005_010 = mean(GenerativeAD.Evaluation.quantile_scores(tr_scores, (0.05, 0.1)))
+	loss_0025_0075 = mean(GenerativeAD.Evaluation.quantile_scores(tr_scores, (0.025, 0.075)))
+
+	row = merge(row, (;zip(_prefix_symbol.("tr", LOSS_METRICS), [loss, loss_005_010, loss_0025_0075])...))
+
+	DataFrame([row])
+end
+
+"""
+	aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc;
+								min_samples=("anomaly_class" in names(df)) ? 10 : 3,
 								downsample=Dict(), add_col=nothing)
 
 Agregates eval metrics by seed/anomaly class over a given hyperparameter and then chooses best
@@ -185,7 +344,7 @@ columns of different types
 - averaged metrics - both from test and validation data such as `tst_auc`, `val_pat_10`, etc.
 - std of best hyperparameter computed for each metric over different seeds, suffixed `_std`
 - std of best 10 hyperparameters computed over averaged metrics, suffixed `_top_10_std`
-- samples involved in the aggregation, 
+- samples involved in the aggregation,
 	+ `psamples` - number of runs of the best hyperparameter
 	+ `dsamples` - number of sampled hyperparameters
 	+ `dsamples_valid` - number of sampled hyperparameters with enough runs
@@ -195,8 +354,8 @@ Optional arg `min_samples` specifies how many seed/anomaly_class combinations sh
 in order for the hyperparameter's results be considered statistically significant.
 Optionally with argument `add_col` one can specify additional column to average values over.
 """
-function aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc; 
-							min_samples=("anomaly_class" in names(df)) ? 10 : 3, 
+function aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc;
+							min_samples=("anomaly_class" in names(df)) ? 10 : 3,
 							downsample=Dict(), add_col=nothing, verbose=true)
 	agg_cols = vcat(_prefix_symbol.("val", BASE_METRICS), _prefix_symbol.("tst", BASE_METRICS))
 	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAT_METRICS), _prefix_symbol.("tst", PAT_METRICS))
@@ -213,23 +372,23 @@ function aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc;
 			n = length(unique(mg.phash))
 			# downsample models given by the `downsample` dictionary
 			Random.seed!(42)
-			pg = (mkey.modelname in keys(downsample)) && (downsample[mkey.modelname] < n) ? 
-					groupby(mg, :phash)[randperm(n)[1:downsample[mkey.modelname]]] : 
+			pg = (mkey.modelname in keys(downsample)) && (downsample[mkey.modelname] < n) ?
+					groupby(mg, :phash)[randperm(n)[1:downsample[mkey.modelname]]] :
 					groupby(mg, :phash)
 			Random.seed!()
-			
+
 			# filter only those hyperparameter that have sufficient number of samples
 			mg_suff = reduce(vcat, [g for g in pg if nrow(g) >= min_samples])
-			
+
 			# for some methods and threshold the data frame is empty
 			if nrow(mg_suff) > 0
 				# aggregate over the seeds
-				pg_agg = combine(groupby(mg_suff, :phash), 
-							nrow => :psamples, 
-							agg_cols .=> mean .=> agg_cols, 
-							agg_cols .=> std, 
-							:parameters => unique => :parameters) 
-				
+				pg_agg = combine(groupby(mg_suff, :phash),
+							nrow => :psamples,
+							agg_cols .=> mean .=> agg_cols,
+							agg_cols .=> std,
+							:parameters => unique => :parameters)
+
 				# sort by criterion_col
 				sort!(pg_agg, order(criterion_col, rev=true))
 				best = first(pg_agg, 1)
@@ -237,7 +396,7 @@ function aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc;
 				# add std of top 10 models metrics
 				best_10_std = combine(first(pg_agg, 10), agg_cols .=> std .=> top10_std_cols)
 				best = hcat(best, best_10_std)
-				
+
 				# add grouping keys
 				best[:dataset] = dkey.dataset
 				best[:modelname] = mkey.modelname
@@ -253,11 +412,11 @@ end
 
 
 """
-aggregate_stats_max_mean(df::DataFrame, criterion_col=:val_auc; 
+aggregate_stats_max_mean(df::DataFrame, criterion_col=:val_auc;
 							downsample=Dict(), add_col=nothing)
 
 Chooses the best hyperparameters for each seed/anomaly_class combination by `criterion_col`
-and then aggregates the metrics over seed/anomaly_class to get the final results. The output 
+and then aggregates the metrics over seed/anomaly_class to get the final results. The output
 is a DataFrame of maximum #datasets*#models rows with
 columns of different types
 - identifiers - `dataset`, `modelname`
@@ -269,7 +428,7 @@ how many samples should be taken into acount. These are selected randomly with f
 As oposed to mean-max aggregation the output does not contain parameters and phash.
 Optionally with argument `add_col` one can specify additional column to average values over.
 """
-function aggregate_stats_max_mean(df::DataFrame, criterion_col=:val_auc; 
+function aggregate_stats_max_mean(df::DataFrame, criterion_col=:val_auc;
 									downsample=Dict(), add_col=nothing, verbose=true)
 	agg_cols = vcat(_prefix_symbol.("val", BASE_METRICS), _prefix_symbol.("tst", BASE_METRICS))
 	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAT_METRICS), _prefix_symbol.("tst", PAT_METRICS))
@@ -305,32 +464,32 @@ function aggregate_stats_max_mean(df::DataFrame, criterion_col=:val_auc;
 				n = nrow(sg)
 				# downsample the number of hyperparameter if needed
 				Random.seed!(42)
-				ssg = (mkey.modelname in keys(downsample)) && (downsample[mkey.modelname] < n) ? 
+				ssg = (mkey.modelname in keys(downsample)) && (downsample[mkey.modelname] < n) ?
 						sg[randperm(n)[1:downsample[mkey.modelname]], :] : sg
 				Random.seed!()
-				
+
 				sssg = sort(ssg, order(criterion_col, rev=true))
 				# best hyperparameter after sorting by criterion_col
 				best = first(sssg, 1)
-				
+
 				# add std of top 10 models metrics
 				best_10_std = combine(first(sssg, 10), agg_cols .=> std .=> top10_std_cols)
 				best = hcat(best, best_10_std)
-				
+
 				push!(partial_results, best)
 			end
 
 			best_per_seed = reduce(vcat, partial_results)
 			# average over seed-anomaly_class groups
-			best = combine(best_per_seed,  
-						agg_cols .=> mean .=> agg_cols, 
+			best = combine(best_per_seed,
+						agg_cols .=> mean .=> agg_cols,
 						top10_std_cols .=> mean .=> top10_std_cols,
-						agg_cols .=> std) 
-			
+						agg_cols .=> std)
+
 			# add grouping keys
 			best[:dataset] = dkey.dataset
 			best[:modelname] = mkey.modelname
-		
+
 			push!(results, best)
 		end
 	end
