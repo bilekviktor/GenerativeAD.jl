@@ -7,6 +7,7 @@ using Statistics
 using StatsBase
 using EvalMetrics
 using GenerativeAD.Evaluation: quantile_scores
+using GenerativeAD
 
 # metric names and settings
 const BASE_METRICS = ["auc", "auprc", "tpr_5", "f1_5"]
