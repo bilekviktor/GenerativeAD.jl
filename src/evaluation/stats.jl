@@ -358,10 +358,10 @@ Optionally with argument `add_col` one can specify additional column to average 
 function aggregate_stats_mean_max(df::DataFrame, criterion_col=:val_auc;
 							min_samples=("anomaly_class" in names(df)) ? 10 : 3,
 							downsample=Dict(), add_col=nothing, verbose=true)
-	agg_cols = vcat(_prefix_symbol.("val", BASE_METRICS), _prefix_symbol.("tst", BASE_METRICS))
-	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAT_METRICS), _prefix_symbol.("tst", PAT_METRICS))
-	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PATN_METRICS), _prefix_symbol.("tst", PATN_METRICS))
-	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAC_METRICS), _prefix_symbol.("tst", PAC_METRICS))
+	agg_cols = vcat(_prefix_symbol.("val", BASE_METRICS), _prefix_symbol.("tst", BASE_METRICS),  _prefix_symbol.("tr", BASE_METRICS))
+	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAT_METRICS), _prefix_symbol.("tst", PAT_METRICS), _prefix_symbol.("tr", PAT_METRICS))
+	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PATN_METRICS), _prefix_symbol.("tst", PATN_METRICS), _prefix_symbol.("tr", PATN_METRICS))
+	agg_cols = vcat(agg_cols, _prefix_symbol.("val", PAC_METRICS), _prefix_symbol.("tst", PAC_METRICS), _prefix_symbol.("tr", PAC_METRICS))
 	agg_cols = vcat(agg_cols, _prefix_symbol.("tr", LOSS_METRICS))
 	agg_cols = vcat(agg_cols, Symbol.(TRAIN_EVAL_TIMES))
 	agg_cols = (add_col !== nothing) ? vcat(agg_cols, add_col) : agg_cols
