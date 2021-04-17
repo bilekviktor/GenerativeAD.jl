@@ -323,7 +323,7 @@ function compute_quantile_stats(f::String)
 	end
 
 	# Addition of loss and quantile loss values on train data
-	tr_scores = r[_prefix_symbol("tr", :scores)]
+	tr_scores = -r[_prefix_symbol("tr", :scores)]
 	loss = mean(tr_scores)
 	loss_005_010 = mean(GenerativeAD.Evaluation.quantile_scores(tr_scores, (0.05, 0.1)))
 	loss_0025_0075 = mean(GenerativeAD.Evaluation.quantile_scores(tr_scores, (0.025, 0.075)))
